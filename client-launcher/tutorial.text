@@ -1,0 +1,2 @@
+실행 시 명령 : npm run electron:serve
+빌드 시 명령 : npm run electron:build
