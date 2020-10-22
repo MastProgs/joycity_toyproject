@@ -149,6 +149,7 @@ export default {
           break;
       
         default:
+          this.FinalArguments = ""
           break;
       }
     },
@@ -178,6 +179,7 @@ export default {
           this.RefreshArgements()
           break;
         case "Custom":
+          this.RefreshArgements()
           break;
       
         default:
