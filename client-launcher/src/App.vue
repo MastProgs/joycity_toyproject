@@ -7,7 +7,7 @@
       mini-variant
       permanent
     >
-      <v-btn class="d-block mx-auto mb-4" small dark circle @click="OnAddNewPage('hello', 'temp title')">
+      <v-btn class="d-block mx-auto mb-4" small dark circle @click="OnAddNewPage()">
         <v-icon>mdi-plus</v-icon>
       </v-btn>
       <v-divider/>
@@ -17,7 +17,7 @@
           v-for="(item, i) in PageConfig" 
           :key="i" 
           :color="`${i === PageIndex ? 'black' : 'grey'}`" 
-          class="d-block mx-auto" 
+          class="d-block mx-auto my-2" 
           icon 
           @click="ListButtonClicked(i)"
         >
@@ -25,9 +25,14 @@
         </v-btn>
       </div>
 
+      <v-spacer/>
+      <v-divider/>
+      <v-btn icon class="d-block mx-auto my-2" @click="OnSettingButtonClicked()">
+        <v-icon>mdi-cog-outline</v-icon>
+      </v-btn>
     </v-navigation-drawer>
 
-    <v-app-bar app dense flat dark>
+    <v-app-bar app dense flat dark v-if="IsSettingPage === false">
       <h1>{{ PageConfig[PageIndex].HeadTitle }}</h1>
       <v-spacer/>
       <div v-if="PageIndex !== 0">
@@ -39,13 +44,26 @@
         </v-btn>
       </div>
     </v-app-bar>
+    <!-- Settings appbar -->
+    <v-app-bar v-else app dense flat dark>
+      <h1>Settings</h1>
+    </v-app-bar>
 
-    <v-main>
+    <v-main v-if="IsSettingPage === false">
       <div v-if="PageIndex !== 0" class="ma-5">
         <v-select v-model="PageConfig[PageIndex].CountryType" label="Select Country" :items="CountryList" outlined dense @change="OnCountrySelected"></v-select>
 
-        <!-- KOR, CHN, POD -->
-        <div v-if="PageConfig[PageIndex].CountryType !== 'Custom'" class="mx-5">
+        <!-- CHN -->
+        <div v-if="PageConfig[PageIndex].CountryType === 'CHN'" class="mx-5">
+          <v-row>
+            <v-text-field v-model="PageConfig[PageIndex].Ip" label="IP" class="mx-2" @change="RefreshArgements"></v-text-field>
+            <v-text-field v-model="PageConfig[PageIndex].Port" label="Port" class="mx-2" @change="RefreshArgements"></v-text-field>
+          </v-row>
+          <v-file-input @change="OnFileSelected" label="input FreeStyle_d.exe"></v-file-input>
+          <v-text-field v-model="FinalArguments" label="Command Argument" class="mx-2" readonly></v-text-field>
+        </div>
+        <!-- KOR, POD -->
+        <div v-else-if="PageConfig[PageIndex].CountryType !== 'Custom'" class="mx-5">
           <v-row>
             <v-text-field v-model="PageConfig[PageIndex].Id" label="ID" class="mx-2" @change="RefreshArgements"></v-text-field>
             <v-text-field v-model="PageConfig[PageIndex].Pw" label="PassWord" class="mx-2" @change="RefreshArgements"></v-text-field>
@@ -54,13 +72,15 @@
             <v-text-field v-model="PageConfig[PageIndex].Ip" label="IP" class="mx-2" @change="RefreshArgements"></v-text-field>
             <v-text-field v-model="PageConfig[PageIndex].Port" label="Port" class="mx-2" @change="RefreshArgements"></v-text-field>
           </v-row>
-          <v-file-input @change="OnFileSelected"></v-file-input>
+          <v-file-input @change="OnFileSelected" label="input FreeStyle_d.exe"></v-file-input>
           <v-text-field v-model="FinalArguments" label="Command Argument" class="mx-2" readonly></v-text-field>
         </div>
         <!-- Custom -->
         <div v-else class="mx-5">
+          <v-file-input @change="OnFileSelected" label="input *.exe"></v-file-input>
           <v-text-field v-model="FinalArguments" label="Command Argument" class="mx-2"></v-text-field>
         </div>
+        <v-btn block color="green" @click="DoLaunch">Launch</v-btn>
 
       </div>
       <div v-else class="ma-5">
@@ -69,20 +89,61 @@
 
       <AddNewPage :ShowOverlay="CanShowOverAddForm" @ResponseForm="OnResposeAddForm"/>      
     </v-main>
+    <!-- Settings main -->
+    <v-main v-else>
+      <v-card v-for="(setting, i) in DefaultSetting" :key="i" class="ma-4">
+        <v-row class="mx-1">
+          <v-card-title>{{ setting.CountryType }}</v-card-title>
+          <v-spacer/>
+          <v-btn color="blue" x-small class="mr-2 mt-4" icon disabled><v-icon small @click="OnModifySetting(i)">mdi-lead-pencil</v-icon></v-btn>
+          <v-btn color="red" x-small class="mr-2 mt-4" icon disabled><v-icon small @click="OnDeleteSetting(i)">mdi-delete</v-icon></v-btn>
+        </v-row>
+        <v-card-text>
+          IP : {{ setting.Ip }} <br>
+          Port : {{ setting.Port }} <br>
+          Id : {{ setting.Id }} <br>
+          PassWord : {{ setting.Pw }}
+        </v-card-text>
+      </v-card>
+
+      <SettingPopup :ShowOverlay="CanShowOverSettingForm"
+      :InputTypeValue="Setting_Input_Type"
+      :InputIpValue="Setting_Input_Ip"
+      :InputPortValue="Setting_Input_Port"
+      :InputIdValue="Setting_Input_Id"
+      :InputPwValue="Setting_Input_Pw"
+      @ResponseForm="OnResponseSetting"
+      />
+    </v-main>
   </v-app>
 </template>
 
 <script>
 import AddNewPage from "./components/AddNewPage";
+import SettingPopup from "./components/SettingPopup";
+
+function Launch(fpath, arg) {
+  require('child_process').execFile(fpath, arg, function (err, data) {
+    console.log(err)
+    console.log(data.toString())
+  })
+}
 
 export default {
   name: 'App',
 
   components: {
     AddNewPage,
+    SettingPopup,
   },
 
   data: () => ({
+    DefaultSetting: [
+      { CountryType:"KOR", Ip:"192.168.50.166", Port:"10010", Id:"test001", Pw:"1234" },
+      { CountryType:"CHN", Ip:"192.168.50.201", Port:"10010", Id:"test1", Pw:"1111" },
+      { CountryType:"POD", Ip:"192.168.50.171", Port:"10010", Id:"test1", Pw:"1111" },
+    ],
+
     PageIndex: 0,
 
     PageConfig:[
@@ -103,6 +164,16 @@ export default {
     CanShowOverAddForm: false,
 
     FinalArguments: "",
+
+    // Setting various
+    IsSettingPage: false,
+    CanShowOverSettingForm: false,
+
+    Setting_Input_Type: "",
+    Setting_Input_Ip: "",
+    Setting_Input_Port: "",
+    Setting_Input_Id: "",
+    Setting_Input_Pw: "",
   }),
 
   computed: () => ({
@@ -110,11 +181,13 @@ export default {
 
   methods: {
     ListButtonClicked: function (params) {
+      this.IsSettingPage = false
       this.PageIndex = params
       this.RefreshArgements()
     },
 
     OnAddNewPage: function () {
+      this.IsSettingPage = false
       this.CanShowOverAddForm = true
     },
 
@@ -130,10 +203,59 @@ export default {
       this.ListButtonClicked(this.PageConfig.length - 1)
     },
     ListErase: function (index) {
+      this.IsSettingPage = false
       this.PageIndex = 0
       this.PageConfig.splice(index, 1)
     },
 
+    // Setting Page
+    AddSettingList: function () {
+      this.DefaultSetting.push({ CountryType: this.Setting_Input_Type, Ip: this.Setting_Input_Ip, Port: this.Setting_Input_Port, Id: this.Setting_Input_Id, Pw: this.Setting_Input_Pw})
+    },
+    OnSettingButtonClicked: function () {
+      this.IsSettingPage = true
+    },
+    OnDeleteSetting: function (index) {
+      let cnt = 0, type = 0
+      this.CountryList.forEach(element => {
+        if (element == this.DefaultSetting[index].CountryType) {
+          type = cnt          
+        }
+        ++cnt
+      })
+
+      this.CountryList.splice(type, 1)
+      this.DefaultSetting.splice(index, 1)
+    },
+    OnModifySetting: function (index) {   
+      this.Setting_Input_Type = this.DefaultSetting[index].CountryType
+      this.Setting_Input_Ip = this.DefaultSetting[index].Ip
+      this.Setting_Input_Port = this.DefaultSetting[index].Port
+      this.Setting_Input_Id = this.DefaultSetting[index].Id
+      this.Setting_Input_Pw = this.DefaultSetting[index].Pw
+
+      this.CanShowOverSettingForm = true
+    },
+    OnResponseSetting: function (response) {
+      this.CanShowOverSettingForm = false
+      if (response.IsSuccess == false) { return }
+
+      this.CountryList.forEach(element => {
+        if (element === response.Type) {
+          this.DefaultSetting.forEach(li => {
+            if (li.CountryType === response.Type) {
+              li.Ip = response.Ip
+              li.Port = response.Port
+              li.Id = response.Id
+              li.Pw = response.Pw
+              return
+            }
+          })
+          return
+        }
+      })
+      
+    },
 
     // Main Page
     RefreshArgements: function () {
@@ -146,8 +268,7 @@ export default {
           break;
         case "POD":          
           this.FinalArguments = "[TOKEN]0[/TOKEN][SERVER]" + this.PageConfig[this.PageIndex].Ip + ":" + this.PageConfig[this.PageIndex].Port + "[/SERVER][LANGUAGE]0[/LANGUAGE][USERINDEX]" + this.PageConfig[this.PageIndex].Id.split('test').join('') + "[/USERINDEX][USERID]" + this.PageConfig[this.PageIndex].Id + "[/USERID]"
-          break;
-      
+          break;      
         default:
           this.FinalArguments = ""
           break;
@@ -156,40 +277,28 @@ export default {
 
     OnCountrySelected: function (country) {
       this.PageConfig[this.PageIndex].CountryType = country
-      switch (country) {
-        case "KOR":
-          this.PageConfig[this.PageIndex].Ip = "192.168.50.166"
-          this.PageConfig[this.PageIndex].Port = "10010"
-          this.PageConfig[this.PageIndex].Id = "test001"
-          this.PageConfig[this.PageIndex].Pw = "1234"          
-          this.RefreshArgements()
-          break;
-        case "CHN":
-          this.PageConfig[this.PageIndex].Ip = "192.168.50.201"
-          this.PageConfig[this.PageIndex].Port = "10010"
-          this.PageConfig[this.PageIndex].Id = "test1"
-          this.PageConfig[this.PageIndex].Pw = "1234"
-          this.RefreshArgements()
-          break;
-        case "POD":
-          this.PageConfig[this.PageIndex].Ip = "192.168.50.171"
-          this.PageConfig[this.PageIndex].Port = "10010"
-          this.PageConfig[this.PageIndex].Id = "test1"
-          this.PageConfig[this.PageIndex].Pw = "1234"
-          this.RefreshArgements()
-          break;
-        case "Custom":
-          this.RefreshArgements()
-          break;
+
+      this.DefaultSetting.forEach(element => {
+        if (country == element.CountryType) {
+          this.PageConfig[this.PageIndex].Ip = element.Ip
+          this.PageConfig[this.PageIndex].Port = element.Port
+          this.PageConfig[this.PageIndex].Id = element.Id
+          this.PageConfig[this.PageIndex].Pw = element.Pw
+        }
+      });
       
-        default:
-          break;
-      }
+      this.RefreshArgements()
     },
 
     OnFileSelected: function (file) {
       this.PageConfig[this.PageIndex].Filepath = file.path
     },
+
+
+    // Launch
+    DoLaunch: function () {
+      Launch(this.PageConfig[this.PageIndex].Filepath, this.FinalArguments)
+    }
   },
 };
 

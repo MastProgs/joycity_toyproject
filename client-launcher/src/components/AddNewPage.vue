@@ -6,7 +6,7 @@
                     Create New Configuration
                 </v-card-title>
                 <v-card-subtitle>
-                    Please include 'FreeStyle_d.exe' file and settings arguments
+                    Please Define names for use.<br>Icon name is side of left bar label. Title name is top of bar label.
                 </v-card-subtitle>
                 <v-card-text>
                     <v-text-field v-model="Form_IconName" label="Icon Name" hide-details="auto" :rules="InputIconRules" hint="Name of Left icon"/>
